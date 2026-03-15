@@ -135,6 +135,14 @@ def health() -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
+@app.get("/", response_class=HTMLResponse)
+def index() -> HTMLResponse:
+    return HTMLResponse(
+        "<!doctype html><html><head><meta charset='utf-8'><title>CADAgent export service</title></head>"
+        "<body><main><h1>CADAgent export service</h1><p>Service is running.</p></main></body></html>"
+    )
+
+
 @app.post("/exports/{session_id}/{export_format}")
 async def upload_export(
     session_id: str,
