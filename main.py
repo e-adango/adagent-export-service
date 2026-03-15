@@ -130,34 +130,6 @@ def _render_page(session_id: str, formats: Iterable[str]) -> str:
   </body>
 </html>"""
 
-
-
-def _configure_bucket_lifecycle() -> None:
-    _s3_client().put_bucket_lifecycle_configuration(
-        Bucket=_bucket_name(),
-        LifecycleConfiguration={
-            "Rules": [
-                {
-                    "ID": "cadagent-export-expiry",
-                    "Status": "Enabled",
-                    "Filter": {"Prefix": "exports/"},
-                    "Expiration": {"Days": 1},
-                }
-            ]
-        },
-    )
-
-
-@app.on_event("startup")
-def _startup() -> None:
-    try:
-        _configure_bucket_lifecycle()
-    except ConfigError:
-        raise
-    except ClientError as exc:
-        raise RuntimeError(f"Unable to configure S3 lifecycle policy: {exc}") from exc
-
-
 @app.get("/health")
 def health() -> JSONResponse:
     return JSONResponse({"status": "ok"})
