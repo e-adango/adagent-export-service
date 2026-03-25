@@ -8,7 +8,7 @@ from typing import Iterable, Optional
 import boto3
 from botocore.exceptions import ClientError
 from fastapi import FastAPI, Header, HTTPException, Request, Response, status
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 
 SUPPORTED_FORMATS = {
     "step": "application/step",
@@ -103,12 +103,23 @@ def _list_formats(session_id: str) -> list[str]:
 def _render_page(session_id: str, formats: Iterable[str]) -> str:
     escaped_session_id = html.escape(session_id)
     rows = []
+    has_glb = False
     for export_format in formats:
         escaped_format = html.escape(export_format)
-        href = html.escape(f"/exports/{session_id}/{export_format}", quote=True)
+        href = html.escape(f"/{session_id}/{export_format}", quote=True)
         rows.append(f'<li><a href="{href}">{escaped_format.upper()}</a></li>')
+        if export_format == "glb":
+            has_glb = True
 
     content = "\n".join(rows) if rows else "<li>No exports available yet.</li>"
+    preview_section = "<p>No preview available yet.</p>"
+    if has_glb:
+        glb_src = html.escape(f"/{session_id}/glb", quote=True)
+        preview_section = (
+            '<model-viewer style="width:100%;height:420px;background:#f3f4f6;border-radius:12px;" '
+            f'src="{glb_src}" camera-controls auto-rotate></model-viewer>'
+            '<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>'
+        )
     return f"""<!doctype html>
 <html lang="en">
   <head>
@@ -125,6 +136,9 @@ def _render_page(session_id: str, formats: Iterable[str]) -> str:
     <main>
       <h1>CADAgent exports</h1>
       <p>Session: <strong>{escaped_session_id}</strong></p>
+      <h2>Preview</h2>
+      {preview_section}
+      <h2>Downloads</h2>
       <ul>{content}</ul>
     </main>
   </body>
@@ -176,8 +190,7 @@ async def upload_export(
     return Response(status_code=status.HTTP_201_CREATED)
 
 
-@app.get("/exports/{session_id}/{export_format}")
-def download_export(session_id: str, export_format: str) -> StreamingResponse:
+def _download_export_response(session_id: str, export_format: str) -> StreamingResponse:
     normalized_format = _normalize_format(export_format)
 
     try:
@@ -198,8 +211,23 @@ def download_export(session_id: str, export_format: str) -> StreamingResponse:
     return StreamingResponse(response["Body"].iter_chunks(), media_type=SUPPORTED_FORMATS[normalized_format], headers=headers)
 
 
+@app.get("/exports/{session_id}/{export_format}")
+def download_export(session_id: str, export_format: str) -> RedirectResponse:
+    return RedirectResponse(url=f"/{session_id}/{export_format}", status_code=status.HTTP_301_MOVED_PERMANENTLY)
+
+
 @app.get("/exports/{session_id}", response_class=HTMLResponse)
 def list_exports(session_id: str) -> HTMLResponse:
+    return RedirectResponse(url=f"/{session_id}", status_code=status.HTTP_301_MOVED_PERMANENTLY)
+
+
+@app.get("/{session_id}/{export_format}")
+def download_export_canonical(session_id: str, export_format: str) -> StreamingResponse:
+    return _download_export_response(session_id=session_id, export_format=export_format)
+
+
+@app.get("/{session_id}", response_class=HTMLResponse)
+def list_exports_canonical(session_id: str) -> HTMLResponse:
     try:
         formats = _list_formats(session_id)
     except ClientError as exc:
