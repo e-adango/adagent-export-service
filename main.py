@@ -108,16 +108,16 @@ def _render_page(session_id: str, formats: Iterable[str]) -> str:
         escaped_format = html.escape(export_format)
         href = html.escape(f"/{session_id}/{export_format}", quote=True)
         rows.append(
-            "<a class=\"download-button\" "
-            f"href=\"{href}\">Download {escaped_format.upper()}</a>"
+            "<a class=\"format-link\" "
+            f"href=\"{href}\">{escaped_format.upper()}</a>"
         )
         if export_format == "glb":
             has_glb = True
 
     downloads_section = (
-        "<div class=\"downloads-grid\">"
+        "<nav class=\"formats\" aria-label=\"Available export formats\">"
         f"{''.join(rows)}"
-        "</div>"
+        "</nav>"
         if rows
         else "<p class=\"empty-state\">No exports available yet for this session.</p>"
     )
@@ -125,8 +125,8 @@ def _render_page(session_id: str, formats: Iterable[str]) -> str:
     if has_glb:
         glb_src = html.escape(f"/{session_id}/glb", quote=True)
         preview_section = (
-            "<div class=\"preview-card\">"
-            '<model-viewer style="width:100%;height:420px;border-radius:18px;" '
+            "<div class=\"preview\">"
+            '<model-viewer style="width:100%;height:min(52vh,440px);" '
             f'src="{glb_src}" camera-controls auto-rotate></model-viewer>'
             "</div>"
             '<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>'
@@ -136,36 +136,28 @@ def _render_page(session_id: str, formats: Iterable[str]) -> str:
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CADAgent exports for {escaped_session_id}</title>
+    <title>CADAgent Session {escaped_session_id}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Sora:wght@400;500;700&display=swap" rel="stylesheet" />
     <style>
       :root {{
-        --bg-1: #010c14;
-        --bg-2: #02101d;
-        --bg-glow: rgba(0, 202, 158, 0.14);
-        --ink: #edf4ff;
-        --ink-soft: #9cb2cc;
-        --card: rgba(3, 20, 33, 0.7);
-        --line: rgba(142, 173, 211, 0.24);
-        --accent: #00d79d;
-        --button-bg: linear-gradient(120deg, #12253a 0%, #0b1830 100%);
-        --button-ink: #e9f4ff;
-        --preview-bg: rgba(11, 22, 36, 0.84);
+        --bg-1: #02080f;
+        --bg-2: #031421;
+        --bg-glow: rgba(0, 176, 123, 0.16);
+        --ink: #f4f8ff;
+        --ink-soft: #8fa4bc;
+        --line: rgba(141, 170, 206, 0.35);
+        --accent: #09d89c;
       }}
       :root[data-theme='light'] {{
-        --bg-1: #e7f1ff;
-        --bg-2: #f9fcff;
-        --bg-glow: rgba(0, 142, 104, 0.16);
-        --ink: #0e2338;
-        --ink-soft: #3d5670;
-        --card: rgba(255, 255, 255, 0.78);
-        --line: rgba(24, 58, 93, 0.14);
-        --accent: #008f68;
-        --button-bg: linear-gradient(120deg, #f2f7ff 0%, #dbe8f6 100%);
-        --button-ink: #0b2942;
-        --preview-bg: rgba(237, 244, 252, 0.95);
+        --bg-1: #f5fbff;
+        --bg-2: #e9f3ff;
+        --bg-glow: rgba(0, 123, 90, 0.12);
+        --ink: #0c2136;
+        --ink-soft: #50677f;
+        --line: rgba(13, 52, 88, 0.22);
+        --accent: #007a59;
       }}
       * {{ box-sizing: border-box; }}
       html, body {{ margin: 0; min-height: 100%; }}
@@ -177,149 +169,119 @@ def _render_page(session_id: str, formats: Iterable[str]) -> str:
           radial-gradient(circle at 85% 10%, rgba(38, 99, 180, 0.18), transparent 40%),
           linear-gradient(160deg, var(--bg-1) 0%, var(--bg-2) 100%);
         transition: background 180ms ease, color 180ms ease;
-        padding: 1.5rem 1.2rem 3rem;
+        padding: clamp(1rem, 2vw, 1.8rem);
       }}
-      .shell {{
-        max-width: 960px;
+      .page {{
+        max-width: 840px;
         margin: 0 auto;
-      }}
-      .theme-toggle {{
-        border: 1px solid var(--line);
-        background: var(--card);
-        color: var(--ink);
-        border-radius: 999px;
-        padding: 0.5rem 0.9rem;
-        font-size: 0.85rem;
-        cursor: pointer;
-        backdrop-filter: blur(10px);
       }}
       .topbar {{
         display: flex;
-        justify-content: flex-end;
-      }}
-      .hero {{
-        margin-top: 1.5rem;
-        text-align: center;
-        border: 1px solid var(--line);
-        background: var(--card);
-        border-radius: 26px;
-        padding: clamp(1.6rem, 3vw, 2.4rem);
-        backdrop-filter: blur(16px);
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.1rem 0;
+        border-bottom: 1px solid var(--line);
       }}
       .brand {{
         display: inline-flex;
-        align-items: center;
-        gap: 0.75rem;
+        align-items: baseline;
+        gap: 0.18rem;
+        color: var(--ink);
+        text-decoration: none;
         font-weight: 700;
         letter-spacing: 0.01em;
-        font-size: clamp(1.2rem, 2.7vw, 2rem);
       }}
-      .brand-mark {{
-        width: 1.2em;
-        height: 1.2em;
-        border: 2px solid currentColor;
-        border-radius: 0.18em;
-        transform: rotate(45deg);
-        opacity: 0.85;
+      .brand em {{
+        font-style: normal;
+        font-weight: 400;
+        opacity: 0.9;
       }}
-      .status-pill {{
-        margin: 1.2rem auto 1.4rem;
-        display: inline-block;
-        border-radius: 999px;
-        border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-        background: color-mix(in srgb, var(--accent) 12%, transparent);
-        color: var(--accent);
-        font-size: 0.86rem;
-        padding: 0.45rem 0.9rem;
-        font-weight: 500;
+      .theme-toggle {{
+        border: 0;
+        background: transparent;
+        color: var(--ink-soft);
+        padding: 0.25rem 0;
+        font: inherit;
+        font-size: 0.84rem;
+        cursor: pointer;
+      }}
+      .theme-toggle:hover {{
+        color: var(--ink);
+      }}
+      main {{
+        padding-top: clamp(1.4rem, 5vw, 4rem);
       }}
       h1 {{
         margin: 0;
-        line-height: 1.05;
-        font-size: clamp(2rem, 6vw, 4.2rem);
+        line-height: 1.02;
+        font-size: clamp(2rem, 6.6vw, 4.8rem);
+        letter-spacing: -0.02em;
       }}
       .subline {{
-        margin: 0.35rem 0 0;
+        margin: 0.3rem 0 0;
         font-family: 'Cormorant Garamond', serif;
-        font-size: clamp(2rem, 5vw, 3.5rem);
+        font-size: clamp(1.9rem, 4.8vw, 3.6rem);
         font-weight: 500;
         letter-spacing: 0.01em;
       }}
-      .copy {{
-        max-width: 700px;
-        margin: 1rem auto 0;
+      .meta {{
+        margin: 0.9rem 0 0;
         color: var(--ink-soft);
-        line-height: 1.6;
-      }}
-      .session-chip {{
-        margin-top: 1rem;
-        display: inline-block;
-        font-size: 0.78rem;
-        color: var(--ink-soft);
-        border: 1px dashed var(--line);
-        border-radius: 999px;
-        padding: 0.38rem 0.75rem;
+        font-size: 0.86rem;
       }}
       .downloads {{
-        margin-top: 1.8rem;
+        margin-top: 1.4rem;
       }}
-      .downloads-grid {{
-        display: grid;
-        gap: 0.85rem;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      .formats {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.95rem 1.25rem;
       }}
-      .download-button {{
+      .format-link {{
+        color: var(--ink);
         text-decoration: none;
-        display: inline-flex;
-        justify-content: center;
-        align-items: center;
-        border-radius: 999px;
-        padding: 0.9rem 1.1rem;
-        border: 1px solid var(--line);
-        background: var(--button-bg);
-        color: var(--button-ink);
         font-weight: 600;
-        box-shadow: 0 12px 28px rgba(3, 18, 32, 0.28);
+        letter-spacing: 0.05em;
+        font-size: 0.84rem;
+        padding-bottom: 0.18rem;
+        border-bottom: 1px solid var(--line);
       }}
-      .section-title {{
-        margin: 2rem 0 0.9rem;
-        font-size: 1.1rem;
+      .format-link:hover {{
+        color: var(--accent);
+        border-bottom-color: currentColor;
       }}
-      .preview-card {{
-        border-radius: 20px;
-        border: 1px solid var(--line);
-        background: var(--preview-bg);
-        padding: 0.65rem;
+      .preview {{
+        margin-top: 1.3rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--line);
       }}
       .empty-state {{
         color: var(--ink-soft);
+        font-size: 0.9rem;
       }}
       @media (max-width: 640px) {{
-        .hero {{ border-radius: 20px; }}
+        .formats {{
+          gap: 0.65rem 1rem;
+        }}
       }}
     </style>
   </head>
   <body>
-    <div class="shell">
+    <div class="page">
       <div class="topbar">
-        <button id="theme-toggle" class="theme-toggle" type="button">Switch Theme</button>
+        <a class="brand" href="https://cadagent.co"><span>CAD</span><em>Agent</em></a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light and dark theme">
+          Theme
+        </button>
       </div>
-      <main class="hero">
-        <div class="brand"><span class="brand-mark"></span><span>CADAgent</span></div>
-        <div class="status-pill">Now Live</div>
+      <main>
         <h1>Intent-first engineering.</h1>
         <p class="subline">Express. Refine. Produce.</p>
-        <p class="copy">
-          A free, open source Fusion 360 add-in that turns your intent into editable CAD.
-          Export and share this session in one place.
-        </p>
-        <div class="session-chip">Session {escaped_session_id}</div>
+        <p class="meta">Session {escaped_session_id}</p>
         <section class="downloads">
-          <h2 class="section-title">Downloads</h2>
           {downloads_section}
         </section>
         <section>
-          <h2 class="section-title">Preview</h2>
           {preview_section}
         </section>
       </main>
@@ -336,7 +298,7 @@ def _render_page(session_id: str, formats: Iterable[str]) -> str:
 
         var button = document.getElementById('theme-toggle');
         function updateButton(theme) {{
-          button.textContent = theme === 'dark' ? 'Switch To Light' : 'Switch To Dark';
+          button.textContent = theme === 'dark' ? 'Light' : 'Dark';
         }}
         updateButton(stored);
         button.addEventListener('click', function() {{
