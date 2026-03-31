@@ -7,8 +7,9 @@ from typing import Iterable, Optional
 
 import boto3
 from botocore.exceptions import ClientError
-from fastapi import FastAPI, Header, HTTPException, Request, Response, status
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from cadagent_mcp.server import create_app as create_mcp_app
 
 SUPPORTED_FORMATS = {
     "step": "application/step",
@@ -76,6 +77,18 @@ def _object_key(session_id: str, export_format: str) -> str:
     return f"exports/{session_id}/{export_format}"
 
 
+def _mcp_backend_url() -> str:
+    return (
+        str(
+            os.environ.get("CADAGENT_BACKEND_URL")
+            or os.environ.get("PARTSPEC_BACKEND_URL")
+            or "http://13.60.23.36"
+        )
+        .strip()
+        .rstrip("/")
+    )
+
+
 
 def _list_formats(session_id: str) -> list[str]:
     prefix = f"exports/{session_id}/"
@@ -106,7 +119,7 @@ def _render_page(session_id: str, formats: Iterable[str]) -> str:
     has_glb = False
     for export_format in formats:
         escaped_format = html.escape(export_format)
-        href = html.escape(f"/{session_id}/{export_format}", quote=True)
+        href = html.escape(f"/exports/{session_id}/{export_format}", quote=True)
         rows.append(
             "<a class=\"format-link\" "
             f"href=\"{href}\">{escaped_format.upper()}</a>"
@@ -380,25 +393,26 @@ def _download_export_response(session_id: str, export_format: str) -> StreamingR
 
 
 @app.get("/exports/{session_id}/{export_format}")
-def download_export(session_id: str, export_format: str) -> RedirectResponse:
-    return RedirectResponse(url=f"/{session_id}/{export_format}", status_code=status.HTTP_301_MOVED_PERMANENTLY)
-
-
-@app.get("/exports/{session_id}", response_class=HTMLResponse)
-def list_exports(session_id: str) -> HTMLResponse:
-    return RedirectResponse(url=f"/{session_id}", status_code=status.HTTP_301_MOVED_PERMANENTLY)
-
-
-@app.get("/{session_id}/{export_format}")
-def download_export_canonical(session_id: str, export_format: str) -> StreamingResponse:
+def download_export(session_id: str, export_format: str) -> StreamingResponse:
     return _download_export_response(session_id=session_id, export_format=export_format)
 
 
-@app.get("/{session_id}", response_class=HTMLResponse)
-def list_exports_canonical(session_id: str) -> HTMLResponse:
+@app.get("/exports/{session_id}", response_class=HTMLResponse)
+def list_exports(session_id: str) -> RedirectResponse:
+    return RedirectResponse(url=f"/download-page?session_id={session_id}", status_code=status.HTTP_301_MOVED_PERMANENTLY)
+
+
+@app.get("/download-page", response_class=HTMLResponse)
+def download_page(
+    session_id: str = Query(default="", min_length=1),
+) -> HTMLResponse:
     try:
         formats = _list_formats(session_id)
     except ClientError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"S3 listing failed: {exc}") from exc
 
     return HTMLResponse(_render_page(session_id, formats))
+
+
+mcp_app = create_mcp_app(backend_base_url=_mcp_backend_url())
+app.mount("/", mcp_app)

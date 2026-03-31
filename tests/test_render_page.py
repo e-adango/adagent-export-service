@@ -9,9 +9,9 @@ class RenderPageTests(unittest.TestCase):
         self.assertIn('id="theme-toggle"', html)
         self.assertIn("cadagent-export-theme", html)
         self.assertIn('class="format-link"', html)
-        self.assertIn('href="/abc-123/glb"', html)
-        self.assertIn('href="/abc-123/step"', html)
-        self.assertIn('href="/abc-123/stl"', html)
+        self.assertIn('href="/exports/abc-123/glb"', html)
+        self.assertIn('href="/exports/abc-123/step"', html)
+        self.assertIn('href="/exports/abc-123/stl"', html)
         self.assertIn("model-viewer", html)
 
 
